@@ -32,7 +32,7 @@ const Hero = () => {
                 Start Chat
               </Button>
             </Link>
-            <Link to="/chat">
+            <Link to="/dashboard">
               <Button variant="outline" size="lg">
                 View Dashboard
               </Button>
