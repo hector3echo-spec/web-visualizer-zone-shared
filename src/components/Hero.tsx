@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Zap, Shield } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroBg from "@/assets/hero-bg.jpg";
 
 const Hero = () => {
@@ -25,13 +26,17 @@ const Hero = () => {
           </p>
           
           <div className="flex flex-wrap gap-4 justify-center mb-12">
-            <Button variant="hero" size="lg">
-              <MessageSquare className="mr-2 h-5 w-5" />
-              Start Chat
-            </Button>
-            <Button variant="outline" size="lg">
-              View Dashboard
-            </Button>
+            <Link to="/chat">
+              <Button variant="hero" size="lg">
+                <MessageSquare className="mr-2 h-5 w-5" />
+                Start Chat
+              </Button>
+            </Link>
+            <Link to="/chat">
+              <Button variant="outline" size="lg">
+                View Dashboard
+              </Button>
+            </Link>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 mt-16">
