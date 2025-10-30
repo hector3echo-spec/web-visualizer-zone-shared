@@ -1,10 +1,21 @@
+/**
+ * Chat Page - Integrated with Backend CARE Agent
+ * Connects to the FastAPI backend for real AI-powered chat and ticket creation
+ */
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Send, User, ArrowLeft } from "lucide-react";
+import { Bot, Send, User, ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  useCreateChatSession,
+  useSendMessage,
+  useChatMessages,
+} from "@/hooks/use-chat";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -13,20 +24,76 @@ interface Message {
   timestamp: Date;
   ticketId?: string;
   priority?: "p0" | "p1" | "p2" | "p3";
+  intent?: string;
 }
 
 const Chat = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: "Hello! I'm the CARE Agent. I can help you with support issues and create tickets if needed. What can I help you with today?",
-      timestamp: new Date(),
-    },
-  ]);
+  const { user, userProfile } = useAuth();
+  const { toast } = useToast();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const createSession = useCreateChatSession();
+  const sendMessage = useSendMessage();
+  const { data: messagesData, isLoading: loadingMessages } = useChatMessages(
+    sessionId || undefined,
+    100
+  );
+
+  // Initialize chat session on mount
+  useEffect(() => {
+    if (user && userProfile && !sessionId) {
+      createSession.mutate(
+        {
+          user_id: user.id,
+          channel: "web",
+        },
+        {
+          onSuccess: (data) => {
+            setSessionId(data.session_id);
+            // Add welcome message
+            setMessages([
+              {
+                id: "welcome",
+                role: "assistant",
+                content:
+                  "Hello! I'm the CARE Agent. I can help you with support issues and create tickets if needed. What can I help you with today?",
+                timestamp: new Date(),
+              },
+            ]);
+          },
+          onError: (error) => {
+            toast({
+              title: "Failed to start chat",
+              description: error.message,
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    }
+  }, [user, userProfile]);
+
+  // Load existing messages when session is ready
+  useEffect(() => {
+    if (messagesData?.messages && messagesData.messages.length > 0) {
+      const formattedMessages: Message[] = messagesData.messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.message || msg.content, // Support both field names
+        timestamp: new Date(msg.timestamp || msg.created_at || Date.now()), // Support both field names with fallback
+        intent: msg.intent,
+        // Extract ticket info from metadata if available
+        ticketId: msg.metadata?.ticket_id,
+        priority: msg.metadata?.priority?.toLowerCase(),
+      }));
+
+      setMessages(formattedMessages);
+    }
+  }, [messagesData]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,53 +103,59 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || !sessionId || !user || !userProfile) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `temp-${Date.now()}`,
       role: "user",
       content: input,
       timestamp: new Date(),
     };
 
+    // Optimistically add user message
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        {
-          content: "I understand you're experiencing an issue. Let me check our knowledge base for similar cases...",
-          hasTicket: false,
-        },
-        {
-          content: "I've created a support ticket for your issue. Ticket ID: TKT-1005. This has been classified as P1 - Critical priority. Our engineering team will respond within 1 hour.",
-          hasTicket: true,
-          ticketId: "TKT-1005",
-          priority: "p1" as const,
-        },
-        {
-          content: "Based on our records, this is a known issue with a workaround. Would you like me to guide you through the steps?",
-          hasTicket: false,
-        },
-      ];
+    try {
+      const response = await sendMessage.mutateAsync({
+        session_id: sessionId,
+        user_id: user.id,
+        message: currentInput,
+      });
 
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-
+      // Add bot response
       const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `ai-${Date.now()}`,
         role: "assistant",
-        content: randomResponse.content,
+        content: response.bot_response,
         timestamp: new Date(),
-        ticketId: randomResponse.hasTicket ? randomResponse.ticketId : undefined,
-        priority: randomResponse.hasTicket ? randomResponse.priority : undefined,
+        intent: response.intent,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+
+      // Show success notification if ticket was created
+      if (response.intent?.includes("TICKET") || response.intent?.includes("ISSUE")) {
+        toast({
+          title: "Processing your request",
+          description: "The CARE Agent is analyzing your issue...",
+        });
+      }
+    } catch (error) {
+      // Remove optimistic message on error
+      setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
+
+      toast({
+        title: "Failed to send message",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -91,6 +164,18 @@ const Chat = () => {
       handleSend();
     }
   };
+
+  // Show loading state while initializing
+  if (!sessionId || loadingMessages) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Initializing CARE Agent...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -114,7 +199,12 @@ const Chat = () => {
                 </div>
               </div>
             </div>
-            <Badge variant="status">Active</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
+                Online
+              </Badge>
+            </div>
           </div>
         </div>
       </header>
@@ -126,7 +216,9 @@ const Chat = () => {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-4 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex gap-4 ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 {message.role === "assistant" && (
                   <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center flex-shrink-0">
@@ -149,6 +241,11 @@ const Chat = () => {
                       </Badge>
                       <span className="text-xs font-mono">{message.ticketId}</span>
                     </div>
+                  )}
+                  {message.intent && (
+                    <p className="text-xs opacity-50 mt-2">
+                      Intent: {message.intent}
+                    </p>
                   )}
                   <p className="text-xs opacity-70 mt-2">
                     {message.timestamp.toLocaleTimeString([], {
@@ -173,9 +270,18 @@ const Chat = () => {
                 </div>
                 <Card className="p-4 bg-card shadow-card">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <div
+                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <div
+                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <div
+                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    />
                   </div>
                 </Card>
               </div>
@@ -204,11 +310,16 @@ const Chat = () => {
               size="icon"
               className="flex-shrink-0"
             >
-              <Send className="h-4 w-4" />
+              {isTyping ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            The CARE Agent can help resolve issues or create support tickets automatically
+            The CARE Agent can help resolve issues or create support tickets
+            automatically
           </p>
         </div>
       </div>
