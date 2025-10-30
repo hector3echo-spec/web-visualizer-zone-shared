@@ -125,7 +125,7 @@ const Chat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
+  console.log(user)
   const handleSend = async () => {
     if (!input.trim() || !sessionId || !user || !userProfile) return;
 

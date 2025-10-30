@@ -72,6 +72,7 @@ const TicketDetail = () => {
 
   const isAdmin = userProfile?.role === 'admin';
 
+
   const handleStatusUpdate = async (newStatus: TicketStatus) => {
     if (!ticketId || !isAdmin) return;
 
@@ -123,7 +124,7 @@ const TicketDetail = () => {
     );
   }
 
-  if (error || !data?.ticket) {
+  if (error || !data) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="max-w-md">
@@ -145,7 +146,8 @@ const TicketDetail = () => {
     );
   }
 
-  const { ticket, events } = data;
+  const ticket = data;
+  const events = data.events;
 
   // Calculate time remaining for SLA deadlines
   const getTimeRemaining = (deadline?: string) => {

@@ -23,10 +23,10 @@ import {
   Loader2,
   Eye,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, UNSAFE_ErrorResponseImpl, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTickets, useClientTickets, useEngineerTickets, useSLABreachCandidates } from "@/hooks/use-tickets";
+import { useTickets, useClientTickets, useEngineerTickets, useSLABreachCandidates, useTicket } from "@/hooks/use-tickets";
 import type { Priority, TicketStatus } from "@/lib/api-client";
 import { formatDistanceToNow } from "date-fns";
 
@@ -57,23 +57,13 @@ const Dashboard = () => {
   // - Client: sees only their tickets (filtered by client_id)
   const role = userProfile?.role;
   const userId = userProfile?.id;
-  const clientId = userProfile?.client_id;
 
-  // Fetch tickets using all hooks (React rules: hooks must be called unconditionally)
-  const adminQuery = useTickets();
-  const engineerQuery = useEngineerTickets(userId);
-  const clientQuery = useClientTickets(clientId);
+  const query = role === "admin" ? useTickets() : role === "engineer" ? useEngineerTickets(userId) : useClientTickets(userId);
 
   // Select the appropriate data based on role
-  const ticketsData = role === 'admin' ? adminQuery.data :
-                      role === 'engineer' ? engineerQuery.data :
-                      clientQuery.data;
-  const isLoading = role === 'admin' ? adminQuery.isLoading :
-                    role === 'engineer' ? engineerQuery.isLoading :
-                    clientQuery.isLoading;
-  const error = role === 'admin' ? adminQuery.error :
-                role === 'engineer' ? engineerQuery.error :
-                clientQuery.error;
+  const ticketsData = query.data
+  const isLoading = query.isLoading
+  const error = query.error
 
   // Fetch SLA breach candidates
   const { data: breachData } = useSLABreachCandidates();
