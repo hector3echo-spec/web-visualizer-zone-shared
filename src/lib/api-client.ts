@@ -204,7 +204,7 @@ export interface CreateTicketRequest {
 
 export const ticketApi = {
   createTicket: (data: CreateTicketRequest) =>
-    apiRequest<{ ticket: Ticket }>('/api/v1/tickets/create', {
+    apiRequest<{ success: boolean; data: Ticket; error?: string }>('/api/v1/tickets/create', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -240,14 +240,14 @@ export const ticketApi = {
     };
   },
 
-  updateTicketStatus: (ticketId: string, status: TicketStatus, notes?: string) =>
-    apiRequest<{ ticket: Ticket }>('/api/v1/tickets/status', {
+  updateTicketStatus: (ticketId: string, status: TicketStatus, user_id: string, notes?: string) =>
+    apiRequest<{ success: boolean; data: Ticket; error?: string }>('/api/v1/tickets/status', {
       method: 'POST',
-      body: JSON.stringify({ ticket_id: ticketId, new_status: status, notes }),
+      body: JSON.stringify({ ticket_id: ticketId, new_status: status, notes: notes, user_id: user_id }),
     }),
 
   assignTicket: (ticketId: string, engineerId: string, projectManagerId?: string) =>
-    apiRequest<{ ticket: Ticket }>('/api/v1/tickets/assign', {
+    apiRequest<{ success: boolean; data: Ticket; error?: string }>('/api/v1/tickets/assign', {
       method: 'POST',
       body: JSON.stringify({
         ticket_id: ticketId,
@@ -295,6 +295,26 @@ export const ticketApi = {
       total: response.total || 0
     };
   },
+};
+
+// ============================================
+// USER API
+// ============================================
+
+export interface User {
+  id: string;
+  email: string;
+  full_name?: string;
+  role: 'client' | 'engineer' | 'admin';
+  is_active: boolean;
+}
+
+export const userApi = {
+  getUsersByRole: (role: 'client' | 'engineer' | 'admin') =>
+    apiRequest<{ success: boolean; role: string; users: User[]; total: number }>(`/api/v1/users/role/${role}`),
+
+  getEngineers: () =>
+    apiRequest<{ success: boolean; role: string; users: User[]; total: number }>('/api/v1/users/engineers'),
 };
 
 // ============================================

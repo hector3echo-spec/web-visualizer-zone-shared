@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ticketApi,
+  userApi,
   type CreateTicketRequest,
   type Priority,
   type TicketStatus,
@@ -62,12 +63,13 @@ export const useCreateTicket = () => {
 
   return useMutation({
     mutationFn: (data: CreateTicketRequest) => ticketApi.createTicket(data),
-    onSuccess: (data) => {
+    onSuccess: (response) => {
+      const ticket = response.data;
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['clientTickets', data.ticket.client_id] });
+      queryClient.invalidateQueries({ queryKey: ['clientTickets', ticket.client_id] });
       toast({
         title: 'Ticket created',
-        description: `Ticket ${data.ticket.id} has been created with ${data.ticket.priority} priority.`,
+        description: `Ticket ${ticket.id} has been created with ${ticket.priority} priority.`,
       });
     },
     onError: (error: Error) => {
@@ -89,19 +91,24 @@ export const useUpdateTicketStatus = () => {
       ticketId,
       status,
       notes,
+      user_id,
     }: {
       ticketId: string;
       status: TicketStatus;
       notes?: string;
-    }) => ticketApi.updateTicketStatus(ticketId, status, notes),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['ticket', data.ticket.id] });
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['clientTickets'] });
-      toast({
-        title: 'Status updated',
-        description: `Ticket status changed to ${data.ticket.status}.`,
-      });
+      user_id: string;
+    }) => ticketApi.updateTicketStatus(ticketId, status, user_id, notes),
+    onSuccess: (response) => {
+      const ticket = response.data;
+      if (ticket) {
+        queryClient.invalidateQueries({ queryKey: ['ticket', ticket.id] });
+        queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        queryClient.invalidateQueries({ queryKey: ['clientTickets'] });
+        toast({
+          title: 'Status updated',
+          description: `Ticket status changed to ${ticket.status}.`,
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -112,6 +119,7 @@ export const useUpdateTicketStatus = () => {
     },
   });
 };
+
 
 export const useAssignTicket = () => {
   const queryClient = useQueryClient();
@@ -127,8 +135,9 @@ export const useAssignTicket = () => {
       engineerId: string;
       projectManagerId?: string;
     }) => ticketApi.assignTicket(ticketId, engineerId, projectManagerId),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['ticket', data.ticket.id] });
+    onSuccess: (response) => {
+      const ticket = response.data;
+      queryClient.invalidateQueries({ queryKey: ['ticket', ticket.id] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       toast({
         title: 'Ticket assigned',
@@ -142,5 +151,12 @@ export const useAssignTicket = () => {
         variant: 'destructive',
       });
     },
+  });
+};
+
+export const useEngineers = () => {
+  return useQuery({
+    queryKey: ['engineers'],
+    queryFn: () => userApi.getEngineers(),
   });
 };

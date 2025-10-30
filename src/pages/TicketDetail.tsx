@@ -3,7 +3,7 @@
  * Shows comprehensive ticket information with event history and timeline
  */
 import { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, UNSAFE_ErrorResponseImpl } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -33,7 +33,7 @@ import {
   History,
   Edit,
 } from "lucide-react";
-import { useTicket, useUpdateTicketStatus } from "@/hooks/use-tickets";
+import { useTicket, useUpdateTicketStatus, useEngineers, useAssignTicket } from "@/hooks/use-tickets";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Priority, TicketStatus } from "@/lib/api-client";
 import { formatDistanceToNow, format } from "date-fns";
@@ -66,15 +66,23 @@ const TicketDetail = () => {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const { data, isLoading, error } = useTicket(ticketId);
   const updateTicketStatus = useUpdateTicketStatus();
+  const assignTicket = useAssignTicket();
+  const { data: engineersData } = useEngineers();
 
   const isAdmin = userProfile?.role === 'admin';
+  const userId = userProfile?.id;
+  const engineers = engineersData?.users || [];
 
 
   const handleStatusUpdate = async (newStatus: TicketStatus) => {
-    if (!ticketId || !isAdmin) return;
+    if (!ticketId || !isAdmin || !userId) {
+      console.warn('Missing required data:', { ticketId, isAdmin, userId });
+      return;
+    }
 
     setIsUpdatingStatus(true);
     try {
@@ -82,11 +90,31 @@ const TicketDetail = () => {
         ticketId,
         status: newStatus,
         notes: `Status updated to ${newStatus} by admin`,
+        user_id: userId
       });
     } catch (error) {
       console.error('Error updating status:', error);
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleEngineerAssignment = async (engineerId: string) => {
+    if (!ticketId || !isAdmin) {
+      console.warn('Missing required data:', { ticketId, isAdmin });
+      return;
+    }
+
+    setIsAssigning(true);
+    try {
+      await assignTicket.mutateAsync({
+        ticketId,
+        engineerId,
+      });
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -447,9 +475,52 @@ const TicketDetail = () => {
                     <Edit className="h-4 w-4" />
                     Admin Controls
                   </CardTitle>
-                  <CardDescription>Update ticket status</CardDescription>
+                  <CardDescription>Update ticket status and assignment</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium block mb-2">
+                      Assign Engineer
+                    </label>
+                    <Select
+                      value={
+                        // Find the engineer ID that matches the assigned engineer (by ID, name, or email)
+                        engineers.find(
+                          (eng) =>
+                            eng.id === ticket.assigned_engineer ||
+                            eng.full_name === ticket.assigned_engineer ||
+                            eng.email === ticket.assigned_engineer
+                        )?.id || "unassigned"
+                      }
+                      onValueChange={(value) => {
+                        if (value !== "unassigned") {
+                          handleEngineerAssignment(value);
+                        }
+                      }}
+                      disabled={isAssigning}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select an engineer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {engineers.map((engineer) => (
+                          <SelectItem key={engineer.id} value={engineer.id}>
+                            {engineer.full_name || engineer.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {isAssigning && (
+                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Assigning ticket...
+                      </p>
+                    )}
+                  </div>
+
+                  <Separator />
+
                   <div>
                     <label className="text-sm font-medium block mb-2">
                       Change Status
