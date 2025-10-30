@@ -30,7 +30,7 @@ const App = () => (
             <Route
               path="/profile"
               element={
-                <ProtectedRoute requiredRole="client">
+                <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
               }
@@ -38,7 +38,7 @@ const App = () => (
             <Route
               path="/chat"
               element={
-                <ProtectedRoute requiredRole="client">
+                <ProtectedRoute>
                   <Chat />
                 </ProtectedRoute>
               }
@@ -46,7 +46,7 @@ const App = () => (
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute requiredRole="client">
+                <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
               }
@@ -54,7 +54,7 @@ const App = () => (
             <Route
               path="/tickets/:ticketId"
               element={
-                <ProtectedRoute requiredRole="client">
+                <ProtectedRoute>
                   <TicketDetail />
                 </ProtectedRoute>
               }

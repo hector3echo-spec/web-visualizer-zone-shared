@@ -1,21 +1,24 @@
 /**
  * Chat Page - Integrated with Backend CARE Agent
  * Connects to the FastAPI backend for real AI-powered chat and ticket creation
+ * Includes session management sidebar like ChatGPT
  */
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Send, User, ArrowLeft, Loader2 } from "lucide-react";
+import { Bot, Send, User, ArrowLeft, Loader2, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useCreateChatSession,
   useSendMessage,
   useChatMessages,
+  useUserChatSessions,
 } from "@/hooks/use-chat";
 import { useToast } from "@/hooks/use-toast";
+import { ChatSessionSidebar } from "@/components/ChatSessionSidebar";
 
 interface Message {
   id: string;
@@ -34,48 +37,68 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const createSession = useCreateChatSession();
   const sendMessage = useSendMessage();
+  const { data: sessionsData } = useUserChatSessions(user?.id || "", "active");
   const { data: messagesData, isLoading: loadingMessages } = useChatMessages(
     sessionId || undefined,
     100
   );
 
-  // Initialize chat session on mount
+  // Load most recent active session on mount, or create new one
   useEffect(() => {
-    if (user && userProfile && !sessionId) {
-      createSession.mutate(
-        {
-          user_id: user.id,
-          channel: "web",
-        },
-        {
-          onSuccess: (data) => {
-            setSessionId(data.session_id);
-            // Add welcome message
-            setMessages([
-              {
-                id: "welcome",
-                role: "assistant",
-                content:
-                  "Hello! I'm the CARE Agent. I can help you with support issues and create tickets if needed. What can I help you with today?",
-                timestamp: new Date(),
-              },
-            ]);
-          },
-          onError: (error) => {
-            toast({
-              title: "Failed to start chat",
-              description: error.message,
-              variant: "destructive",
-            });
-          },
-        }
-      );
+    if (user && userProfile && !sessionId && !createSession.isPending) {
+      const sessions = sessionsData?.sessions || [];
+      if (sessions.length > 0) {
+        // Load the most recent active session
+        const mostRecent = sessions[0];
+        setSessionId(mostRecent.id);
+      } else if (sessionsData !== undefined) {
+        // Only create if we've confirmed no sessions exist
+        createNewSession();
+      }
     }
-  }, [user, userProfile]);
+  }, [user, userProfile, sessionsData, sessionId]);
+
+  const createNewSession = () => {
+    createSession.mutate(
+      {
+        user_id: user!.id,
+        channel: "web",
+      },
+      {
+        onSuccess: (data) => {
+          setSessionId(data.session_id);
+          setMessages([
+            {
+              id: "welcome",
+              role: "assistant",
+              content:
+                "Hello! I'm the CARE Agent. I can help you with support issues and create tickets if needed. What can I help you with today?",
+              timestamp: new Date(),
+            },
+          ]);
+        },
+        onError: (error) => {
+          toast({
+            title: "Failed to start chat",
+            description: error.message,
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const handleSessionSelect = (newSessionId: string) => {
+    if (newSessionId !== sessionId) {
+      setSessionId(newSessionId);
+      setMessages([]); // Messages will be loaded by useEffect
+    }
+  };
 
   // Load existing messages when session is ready
   useEffect(() => {
@@ -165,54 +188,69 @@ const Chat = () => {
     }
   };
 
-  // Show loading state while initializing
-  if (!sessionId || loadingMessages) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Initializing CARE Agent...</p>
-        </div>
-      </div>
-    );
-  }
+  // Show chat UI immediately - no full-screen loading
+  // Messages will load in the background
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
+    <div className="min-h-screen bg-background flex">
+      {/* Session Sidebar */}
+      {sidebarOpen && (
+        <ChatSessionSidebar
+          currentSessionId={sessionId || undefined}
+          onSessionSelect={handleSessionSelect}
+          onNewSession={createNewSession}
+        />
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                >
+                  <Menu className="h-5 w-5" />
                 </Button>
-              </Link>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                  <Bot className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="font-semibold">CARE Agent</h1>
-                  <p className="text-xs text-muted-foreground">AI Support Assistant</p>
+                <Link to="/">
+                  <Button variant="ghost" size="icon">
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                </Link>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
+                    <Bot className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="font-semibold">CARE Agent</h1>
+                    <p className="text-xs text-muted-foreground">AI Support Assistant</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
-                Online
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
+                  Online
+                </Badge>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Chat Messages */}
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-6 py-8 max-w-4xl">
           <div className="space-y-6">
+            {loadingMessages && messages.length === 0 ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Loading messages...</p>
+              </div>
+            ) : null}
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -322,6 +360,7 @@ const Chat = () => {
             automatically
           </p>
         </div>
+      </div>
       </div>
     </div>
   );

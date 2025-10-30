@@ -40,6 +40,14 @@ export const useClientTickets = (clientId?: string) => {
   });
 };
 
+export const useEngineerTickets = (engineerId?: string) => {
+  return useQuery({
+    queryKey: ['engineerTickets', engineerId],
+    queryFn: () => (engineerId ? ticketApi.getEngineerTickets(engineerId) : Promise.resolve({ tickets: [], total: 0 })),
+    enabled: !!engineerId,
+  });
+};
+
 export const useSLABreachCandidates = () => {
   return useQuery({
     queryKey: ['slaBreachCandidates'],

@@ -18,6 +18,8 @@ export const useUserChatSessions = (userId: string, status?: string) => {
     queryKey: ['userChatSessions', userId, status],
     queryFn: () => chatApi.getUserSessions(userId, status),
     enabled: !!userId,
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 };
 
@@ -27,6 +29,8 @@ export const useChatMessages = (sessionId?: string, limit = 50, offset = 0) => {
     queryFn: () =>
       sessionId ? chatApi.getMessages(sessionId, limit, offset) : Promise.resolve({ messages: [], total: 0 }),
     enabled: !!sessionId,
+    staleTime: 10000, // Consider data fresh for 10 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 };
 

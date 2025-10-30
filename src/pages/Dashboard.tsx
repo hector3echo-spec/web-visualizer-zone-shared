@@ -26,7 +26,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTickets, useSLABreachCandidates } from "@/hooks/use-tickets";
+import { useTickets, useClientTickets, useEngineerTickets, useSLABreachCandidates } from "@/hooks/use-tickets";
 import type { Priority, TicketStatus } from "@/lib/api-client";
 import { formatDistanceToNow } from "date-fns";
 
@@ -53,17 +53,27 @@ const Dashboard = () => {
 
   // Fetch tickets based on user role
   // - Admin: sees all tickets
+  // - Engineer: sees tickets assigned to them
   // - Client: sees only their tickets (filtered by client_id)
-  const isAdmin = userProfile?.role === 'admin';
+  const role = userProfile?.role;
+  const userId = userProfile?.id;
   const clientId = userProfile?.client_id;
 
-  const {
-    data: ticketsData,
-    isLoading,
-    error,
-  } = useTickets(
-    isAdmin ? undefined : clientId ? { client_id: clientId } : undefined
-  );
+  // Fetch tickets using all hooks (React rules: hooks must be called unconditionally)
+  const adminQuery = useTickets();
+  const engineerQuery = useEngineerTickets(userId);
+  const clientQuery = useClientTickets(clientId);
+
+  // Select the appropriate data based on role
+  const ticketsData = role === 'admin' ? adminQuery.data :
+                      role === 'engineer' ? engineerQuery.data :
+                      clientQuery.data;
+  const isLoading = role === 'admin' ? adminQuery.isLoading :
+                    role === 'engineer' ? engineerQuery.isLoading :
+                    clientQuery.isLoading;
+  const error = role === 'admin' ? adminQuery.error :
+                role === 'engineer' ? engineerQuery.error :
+                clientQuery.error;
 
   // Fetch SLA breach candidates
   const { data: breachData } = useSLABreachCandidates();

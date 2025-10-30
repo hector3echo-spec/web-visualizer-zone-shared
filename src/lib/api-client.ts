@@ -276,6 +276,16 @@ export const ticketApi = {
     };
   },
 
+  getEngineerTickets: async (engineerId: string) => {
+    const response = await apiRequest<{ success: boolean; data: Ticket[]; total: number }>(
+      `/api/v1/tickets/by-engineer/${engineerId}`
+    );
+    return {
+      tickets: response.data || [],
+      total: response.total || 0
+    };
+  },
+
   getSLABreachCandidates: async () => {
     const response = await apiRequest<{ success: boolean; data: Ticket[]; total: number }>(
       '/api/v1/tickets/sla/breach-candidates'

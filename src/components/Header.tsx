@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Bot, User, LogOut, Settings } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +34,18 @@ const Header = () => {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const getRoleBadgeVariant = (role?: string) => {
+    switch (role) {
+      case "admin":
+        return "destructive";
+      case "engineer":
+        return "default";
+      case "client":
+      default:
+        return "secondary";
+    }
   };
 
   return (
@@ -103,9 +116,14 @@ const Header = () => {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {userProfile.full_name || "User"}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium leading-none">
+                          {userProfile.full_name || "User"}
+                        </p>
+                        <Badge variant={getRoleBadgeVariant(userProfile.role)} className="text-xs">
+                          {userProfile.role?.toUpperCase()}
+                        </Badge>
+                      </div>
                       <p className="text-xs leading-none text-muted-foreground">
                         {userProfile.email}
                       </p>
