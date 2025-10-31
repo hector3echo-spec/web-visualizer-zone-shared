@@ -29,10 +29,9 @@ RUN npm install -g serve
 COPY --from=builder /app/dist ./dist
 
 # Create non-root user for security
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser && \
-    chown -R appuser:appuser /app
-USER appuser
+# Use node user that comes with node:alpine image
+RUN chown -R node:node /app
+USER node
 
 # Expose port
 EXPOSE 8080
