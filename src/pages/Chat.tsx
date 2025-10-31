@@ -192,20 +192,22 @@ const Chat = () => {
   // Messages will load in the background
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex overflow-hidden">
       {/* Session Sidebar */}
       {sidebarOpen && (
-        <ChatSessionSidebar
-          currentSessionId={sessionId || undefined}
-          onSessionSelect={handleSessionSelect}
-          onNewSession={createNewSession}
-        />
+        <div className="h-full overflow-y-auto border-r border-border bg-card/50">
+          <ChatSessionSidebar
+            currentSessionId={sessionId || undefined}
+            onSessionSelect={handleSessionSelect}
+            onNewSession={createNewSession}
+          />
+        </div>
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-border bg-card/50 backdrop-blur-sm flex-shrink-0 z-50">
           <div className="container mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -331,7 +333,7 @@ const Chat = () => {
       </main>
 
       {/* Input Area */}
-      <div className="border-t border-border bg-card/50 backdrop-blur-sm sticky bottom-0">
+      <div className="border-t border-border bg-card/50 backdrop-blur-sm flex-shrink-0">
         <div className="container mx-auto px-6 py-4 max-w-4xl">
           <div className="flex gap-3">
             <Input
