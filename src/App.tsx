@@ -12,6 +12,7 @@ import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import TicketDetail from "./pages/TicketDetail";
+import ReportIssue from "./pages/ReportIssue";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <TicketDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/report-issue"
+              element={
+                <ProtectedRoute>
+                  <ReportIssue />
                 </ProtectedRoute>
               }
             />

@@ -209,6 +209,21 @@ export const ticketApi = {
       body: JSON.stringify(data),
     }),
 
+  createTicketFromForm: (data: Omit<CreateTicketRequest, 'priority'>) =>
+    apiRequest<{ 
+      success: boolean; 
+      data: Ticket & {
+        priority_classification?: {
+          classified_priority: string;
+          reasoning: string;
+        };
+      }; 
+      error?: string 
+    }>('/api/v1/tickets/create-from-form', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   getTicket: async (ticketId: string) => {
     const response = await apiRequest<{ success: boolean; data: { ticket: Ticket; events: TicketEvent[] } }>(
       `/api/v1/tickets/${ticketId}`
