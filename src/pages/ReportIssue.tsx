@@ -2,8 +2,8 @@
  * Issue Report Form Page
  * Allows users to submit issue reports which will be automatically classified for priority
  */
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,6 +45,7 @@ export default function ReportIssue() {
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchParams] = useSearchParams();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -55,6 +56,19 @@ export default function ReportIssue() {
       diagnostic_context: "",
     },
   });
+
+  // Pre-fill form from URL query parameters
+  useEffect(() => {
+    const title = searchParams.get("title");
+    const description = searchParams.get("description");
+    const symptoms = searchParams.get("symptoms");
+    const diagnostic_context = searchParams.get("diagnostic_context");
+
+    if (title) form.setValue("title", decodeURIComponent(title));
+    if (description) form.setValue("description", decodeURIComponent(description));
+    if (symptoms) form.setValue("symptoms", decodeURIComponent(symptoms));
+    if (diagnostic_context) form.setValue("diagnostic_context", decodeURIComponent(diagnostic_context));
+  }, [searchParams, form]);
 
   const onSubmit = async (data: FormData) => {
     if (!user || !userProfile) {

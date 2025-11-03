@@ -2,7 +2,12 @@
  * React Query hooks for chat operations
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { chatApi, type SendMessageRequest, type CreateSessionRequest } from '@/lib/api-client';
+import {
+  chatApi,
+  type SendMessageRequest,
+  type CreateSessionRequest,
+  type SessionType,
+} from '@/lib/api-client';
 import { useToast } from './use-toast';
 
 export const useChatSession = (sessionId?: string) => {
@@ -13,10 +18,10 @@ export const useChatSession = (sessionId?: string) => {
   });
 };
 
-export const useUserChatSessions = (userId: string, status?: string) => {
+export const useUserChatSessions = (userId: string, sessionType?: SessionType) => {
   return useQuery({
-    queryKey: ['userChatSessions', userId, status],
-    queryFn: () => chatApi.getUserSessions(userId, status),
+    queryKey: ['userChatSessions', userId, sessionType],
+    queryFn: () => chatApi.getUserSessions(userId, sessionType),
     enabled: !!userId,
     staleTime: 30000, // Consider data fresh for 30 seconds
     gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes

@@ -90,7 +90,7 @@ const TicketDetail = () => {
         ticketId,
         status: newStatus,
         notes: `Status updated to ${newStatus} by admin`,
-        user_id: userId
+        userId: userId
       });
     } catch (error) {
       console.error('Error updating status:', error);
@@ -269,7 +269,10 @@ const TicketDetail = () => {
                       <div>
                         <h3 className="font-semibold mb-2">Symptoms</h3>
                         <ul className="list-disc list-inside space-y-1">
-                          {ticket.symptoms.map((symptom, idx) => (
+                          {(Array.isArray(ticket.symptoms)
+                            ? ticket.symptoms
+                            : ticket.symptoms.split(',').map(s => s.trim())
+                          ).map((symptom, idx) => (
                             <li key={idx} className="text-sm text-muted-foreground">
                               {symptom}
                             </li>

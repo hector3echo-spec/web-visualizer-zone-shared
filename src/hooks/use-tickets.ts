@@ -6,6 +6,7 @@ import {
   ticketApi,
   userApi,
   type CreateTicketRequest,
+  type UpdateTicketRequest,
   type Priority,
   type TicketStatus,
 } from '@/lib/api-client';
@@ -33,13 +34,16 @@ export const useTickets = (filters?: {
   });
 };
 
-export const useClientTickets = (clientId?: string) => {
+export const useUserTickets = (userId?: string) => {
   return useQuery({
-    queryKey: ['clientTickets', clientId],
-    queryFn: () => (clientId ? ticketApi.getClientTickets(clientId) : Promise.resolve({ tickets: [], total: 0 })),
-    enabled: !!clientId,
+    queryKey: ['userTickets', userId],
+    queryFn: () => (userId ? ticketApi.getUserTickets(userId) : Promise.resolve({ tickets: [], total: 0 })),
+    enabled: !!userId,
   });
 };
+
+// Legacy alias for backward compatibility
+export const useClientTickets = useUserTickets;
 
 export const useEngineerTickets = (engineerId?: string) => {
   return useQuery({
@@ -65,12 +69,14 @@ export const useCreateTicket = () => {
     mutationFn: (data: CreateTicketRequest) => ticketApi.createTicket(data),
     onSuccess: (response) => {
       const ticket = response.data;
-      queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['clientTickets', ticket.client_id] });
-      toast({
-        title: 'Ticket created',
-        description: `Ticket ${ticket.id} has been created with ${ticket.priority} priority.`,
-      });
+      if (ticket) {
+        queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        queryClient.invalidateQueries({ queryKey: ['userTickets', ticket.user_id] });
+        toast({
+          title: 'Ticket created',
+          description: `Ticket ${ticket.id} has been created with ${ticket.priority} priority.`,
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -91,19 +97,20 @@ export const useUpdateTicketStatus = () => {
       ticketId,
       status,
       notes,
-      user_id,
+      userId,
     }: {
       ticketId: string;
       status: TicketStatus;
       notes?: string;
-      user_id: string;
-    }) => ticketApi.updateTicketStatus(ticketId, status, user_id, notes),
+      userId: string;
+    }) => ticketApi.updateTicketStatus(ticketId, status, userId, notes),
     onSuccess: (response) => {
       const ticket = response.data;
       if (ticket) {
         queryClient.invalidateQueries({ queryKey: ['ticket', ticket.id] });
         queryClient.invalidateQueries({ queryKey: ['tickets'] });
-        queryClient.invalidateQueries({ queryKey: ['clientTickets'] });
+        queryClient.invalidateQueries({ queryKey: ['userTickets'] });
+        queryClient.invalidateQueries({ queryKey: ['engineerTickets'] });
         toast({
           title: 'Status updated',
           description: `Ticket status changed to ${ticket.status}.`,
@@ -113,6 +120,35 @@ export const useUpdateTicketStatus = () => {
     onError: (error: Error) => {
       toast({
         title: 'Failed to update status',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+};
+
+export const useUpdateTicket = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ ticketId, data }: { ticketId: string; data: UpdateTicketRequest }) =>
+      ticketApi.updateTicket(ticketId, data),
+    onSuccess: (response) => {
+      const ticket = response.data;
+      if (ticket) {
+        queryClient.invalidateQueries({ queryKey: ['ticket', ticket.id] });
+        queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        queryClient.invalidateQueries({ queryKey: ['userTickets'] });
+        toast({
+          title: 'Ticket updated',
+          description: 'Ticket has been updated successfully.',
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Failed to update ticket',
         description: error.message,
         variant: 'destructive',
       });
@@ -158,5 +194,13 @@ export const useEngineers = () => {
   return useQuery({
     queryKey: ['engineers'],
     queryFn: () => userApi.getEngineers(),
+  });
+};
+
+export const useTicketSLA = (ticketId?: string) => {
+  return useQuery({
+    queryKey: ['ticketSLA', ticketId],
+    queryFn: () => (ticketId ? ticketApi.getTicketSLA(ticketId) : Promise.resolve(null)),
+    enabled: !!ticketId,
   });
 };
