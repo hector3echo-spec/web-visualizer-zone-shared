@@ -19,6 +19,7 @@ import {
 } from "@/hooks/use-chat";
 import { useToast } from "@/hooks/use-toast";
 import { ChatSessionSidebar } from "@/components/ChatSessionSidebar";
+import { MessageRenderer } from "@/components/MessageRenderer";
 
 interface Message {
   id: string;
@@ -273,7 +274,7 @@ const Chat = () => {
                       : "bg-card"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <MessageRenderer content={message.content} />
                   {message.ticketId && (
                     <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2">
                       <Badge variant={message.priority}>
