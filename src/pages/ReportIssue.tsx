@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/api-client";
-import { Loader2, AlertCircle, Send, HelpCircle, Sparkles } from "lucide-react";
+import { Loader2, AlertCircle, Send, HelpCircle, Sparkles, Upload, X, Image as ImageIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -46,6 +46,8 @@ export default function ReportIssue() {
   const { user, userProfile } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchParams] = useSearchParams();
+  const [screenshot, setScreenshot] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -69,6 +71,47 @@ export default function ReportIssue() {
     if (symptoms) form.setValue("symptoms", decodeURIComponent(symptoms));
     if (diagnostic_context) form.setValue("diagnostic_context", decodeURIComponent(diagnostic_context));
   }, [searchParams, form]);
+
+  // Handle screenshot file selection
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file (PNG, JPG, etc.)",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setScreenshot(file);
+
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setScreenshotPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle screenshot removal
+  const handleRemoveScreenshot = () => {
+    setScreenshot(null);
+    setScreenshotPreview(null);
+  };
 
   const onSubmit = async (data: FormData) => {
     if (!user || !userProfile) {
@@ -100,6 +143,17 @@ export default function ReportIssue() {
         }
       }
 
+      // Convert screenshot to base64 if present
+      let screenshotBase64 = null;
+      if (screenshot) {
+        screenshotBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(screenshot);
+        });
+      }
+
       const requestData = {
         title: data.title,
         description: data.description,
@@ -107,6 +161,7 @@ export default function ReportIssue() {
         client_email: user.email,
         symptoms: symptomsArray,
         diagnostic_context: diagnosticContext,
+        ...(screenshotBase64 && { screenshot_base64: screenshotBase64 }),
       };
 
       const response = await apiRequest<{
@@ -290,6 +345,75 @@ export default function ReportIssue() {
                     </FormItem>
                   )}
                 />
+
+                {/* Screenshot Upload Field */}
+                <div className="space-y-2">
+                  <FormLabel>Screenshot (Optional)</FormLabel>
+
+                  {!screenshotPreview ? (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                      <label htmlFor="screenshot-upload" className="cursor-pointer block">
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+                            <Upload className="h-6 w-6 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">
+                              Click to upload screenshot
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              PNG, JPG up to 5MB
+                            </p>
+                          </div>
+                        </div>
+                        <input
+                          id="screenshot-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleScreenshotChange}
+                          disabled={isSubmitting}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="relative border-2 border-gray-200 rounded-lg p-4">
+                      <button
+                        type="button"
+                        onClick={handleRemoveScreenshot}
+                        disabled={isSubmitting}
+                        className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full text-red-600 transition-colors"
+                        aria-label="Remove screenshot"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0">
+                          <ImageIcon className="h-10 w-10 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {screenshot?.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {screenshot && (screenshot.size / 1024).toFixed(1)} KB
+                          </p>
+                          {screenshotPreview && (
+                            <img
+                              src={screenshotPreview}
+                              alt="Screenshot preview"
+                              className="mt-2 max-h-40 rounded border border-gray-200"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <FormDescription>
+                    Upload a screenshot to help us understand the issue better.
+                  </FormDescription>
+                </div>
 
                 <div className="flex gap-4 pt-6 border-t">
                   <Button

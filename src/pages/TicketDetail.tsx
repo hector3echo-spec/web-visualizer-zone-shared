@@ -32,6 +32,7 @@ import {
   FileText,
   History,
   Edit,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useTicket, useUpdateTicketStatus, useEngineers, useAssignTicket } from "@/hooks/use-tickets";
 import { useAuth } from "@/contexts/AuthContext";
@@ -177,6 +178,13 @@ const TicketDetail = () => {
   const ticket = data;
   const events = data.events;
 
+  // Debug: Log ticket data to check screenshot_url
+  console.log("Ticket data:", {
+    id: ticket.id,
+    screenshot_url: ticket.screenshot_url,
+    has_screenshot: !!ticket.screenshot_url
+  });
+
   // Calculate time remaining for SLA deadlines
   const getTimeRemaining = (deadline?: string) => {
     if (!deadline) return null;
@@ -278,6 +286,42 @@ const TicketDetail = () => {
                             </li>
                           ))}
                         </ul>
+                      </div>
+                    </>
+                  )}
+
+                  {ticket.screenshot_url && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4" />
+                          Screenshot
+                        </h3>
+                        <div className="rounded-lg border border-border overflow-hidden bg-muted/30">
+                          <img
+                            src={ticket.screenshot_url}
+                            alt="Issue screenshot"
+                            className="w-full h-auto max-h-[500px] object-contain"
+                            loading="lazy"
+                            onError={(e) => {
+                              console.error("Failed to load screenshot:", ticket.screenshot_url);
+                              e.currentTarget.style.display = 'none';
+                              const errorDiv = document.createElement('div');
+                              errorDiv.className = 'p-4 text-sm text-muted-foreground text-center';
+                              errorDiv.textContent = 'Failed to load screenshot. URL: ' + ticket.screenshot_url;
+                              e.currentTarget.parentElement?.appendChild(errorDiv);
+                            }}
+                          />
+                        </div>
+                        <a
+                          href={ticket.screenshot_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline mt-2 inline-block"
+                        >
+                          Open in new tab
+                        </a>
                       </div>
                     </>
                   )}
@@ -454,16 +498,20 @@ const TicketDetail = () => {
                 <div>
                   <span className="text-sm font-medium block mb-1">Engineer</span>
                   <p className="text-sm text-muted-foreground">
-                    {ticket.assigned_engineer || "Unassigned"}
+                    {ticket.assigned_engineer_id
+                      ? engineers.find((eng) => eng.id === ticket.assigned_engineer_id)?.full_name ||
+                        engineers.find((eng) => eng.id === ticket.assigned_engineer_id)?.email ||
+                        "Assigned"
+                      : "Unassigned"}
                   </p>
                 </div>
-                {ticket.project_manager && (
+                {ticket.project_manager_id && (
                   <div>
                     <span className="text-sm font-medium block mb-1">
                       Project Manager
                     </span>
                     <p className="text-sm text-muted-foreground">
-                      {ticket.project_manager}
+                      {ticket.project_manager_id}
                     </p>
                   </div>
                 )}
@@ -486,15 +534,7 @@ const TicketDetail = () => {
                       Assign Engineer
                     </label>
                     <Select
-                      value={
-                        // Find the engineer ID that matches the assigned engineer (by ID, name, or email)
-                        engineers.find(
-                          (eng) =>
-                            eng.id === ticket.assigned_engineer ||
-                            eng.full_name === ticket.assigned_engineer ||
-                            eng.email === ticket.assigned_engineer
-                        )?.id || "unassigned"
-                      }
+                      value={ticket.assigned_engineer_id || "unassigned"}
                       onValueChange={(value) => {
                         if (value !== "unassigned") {
                           handleEngineerAssignment(value);
