@@ -9,13 +9,16 @@ export function MessageRenderer({ content }: MessageRendererProps) {
   // Custom components for markdown rendering
   const components: Components = {
     // Render links as clickable hyperlinks with proper styling
-    a: ({ node, ...props }) => (
+    a: ({ node, href, children, ...props }) => (
       <a
-        {...props}
-        className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+        href={href}
+        className="text-blue-600 hover:text-blue-800 underline cursor-pointer inline-block"
         target="_blank"
         rel="noopener noreferrer"
-      />
+        {...props}
+      >
+        {children}
+      </a>
     ),
     // Render paragraphs with proper spacing
     p: ({ node, ...props }) => (
